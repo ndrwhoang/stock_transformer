@@ -1,28 +1,31 @@
 import json
+import time
+import datetime
+from datetime import timedelta
 import os
 import pandas as pd
 from pprint import pprint
-from datetime import datetime
+from operator import itemgetter
 
 months = {
-    'January': '1',
-    'Jan': '1',
-    'February': '2',
-    'Feb': '2',
-    'March': '3',
-    'Mar': '3',
-    'April': '4',
-    'Apr': '4',
-    'May': '5',
-    'June': '6',
-    'Jun': '6',
-    'July': '7', 
-    'Jul': '7',
-    'August': '8',
-    'Aug': '8',
-    'September': '9',
-    'Sept': '9',
-    'Sep': '9',
+    'January': '01',
+    'Jan': '01',
+    'February': '02',
+    'Feb': '02',
+    'March': '03',
+    'Mar': '03',
+    'April': '04',
+    'Apr': '04',
+    'May': '05',
+    'June': '06',
+    'Jun': '06',
+    'July': '07', 
+    'Jul': '07',
+    'August': '08',
+    'Aug': '08',
+    'September': '09',
+    'Sept': '09',
+    'Sep': '09',
     'October': '10',
     'Oct': '10',
     'November': '11',
@@ -46,26 +49,26 @@ def process_headlines():
             time = time.split(',')[-1].split(' ')
             time = [i for i in time if i != '']
             assert len(time) == 3
-            formatted_time[0] = months[time[1]]
-            formatted_time[1] = time[0]
-            formatted_time[2] = time[2]
+            formatted_time[0] = time[2]
+            formatted_time[1] = months[time[1]]
+            formatted_time[2] = time[0] if len(time[0]) == 2 else '0' + time[0]
         elif '-' in time:
             time = time.split('-')
             if len(time) != 3:
                 continue
-            formatted_time[0] = months[time[1]]
-            formatted_time[1] = time[0]
-            formatted_time[2] = '20' + time[2]
+            formatted_time[0] = '20' + time[2]
+            formatted_time[1] = months[time[1]]
+            formatted_time[2] = time[0] if len(time[0]) == 2 else '0' + time[0]
         else:
             time = time.split(' ')
             assert len(time) == 3
-            formatted_time[0] = months[time[0]]
-            formatted_time[1] = time[1]
-            formatted_time[2] = time[2]
+            formatted_time[0] = time[2]
+            formatted_time[1] = months[time[0]]
+            formatted_time[2] = time[1] if len(time[1]) == 2 else '0' + time[1]
         
         # date_time = datetime.strptime(' '.join(formatted_time), '%m %d %Y')
         # sample['formatted_time'] = date_time
-        sample['formatted_time'] = ' '.join(formatted_time)
+        sample['formatted_time'] = ''.join(formatted_time)
         
     with open('data\headline_per_article.json', 'w') as f:
         json.dump(data, f)
@@ -94,28 +97,74 @@ def merge_headlines_by_date():
 def process_stock_prices():
     df = pd.read_csv(os.path.join(*'data\stock.csv'.split('\\')),
                      header = 0,
-                     nrows=100
+                    #  nrows=100
                      )
     
     data = df.to_dict('records')
-    for sample in data:
+    for i, sample in enumerate(data):
+        # if i == 15: break
         formatted_time = [0]*3
         time = sample['Date']
         time = time.split('-')
-        formatted_time[0] = months[time[1]]
-        formatted_time[1] = time[0]
-        formatted_time[2] = '20' + time[2]
+        if len(time[0]) == 2:
+            formatted_time[2] = time[0]
+        else:
+            formatted_time[2] = '0' + time[0]
+        formatted_time[1] = months[time[1]]
+        formatted_time[0] = '20' + time[2]
         
-        sample['formatted_time'] = ' '.join(formatted_time)
+        sample['formatted_time'] = ''.join(formatted_time)
         
     with open('data\stockprice_per_date.json', 'w') as f:
         json.dump(data, f)
+
+def make_samples():
+    headlines = 'data\headline_per_date.json'
+    stockprices = 'data\stockprice_per_date.json'
+    comments = ''
+    
+    with open(headlines, 'r') as f:
+        headline_data = json.load(f)
+    f.close()
+    with open(stockprices, 'r') as f:
+        stockprice_data = json.load(f)
+    f.close()
+    
+    samples = []
+    stockprice_data = sorted(stockprice_data, key=itemgetter('formatted_time'))
+    for i_sample, sample in enumerate(stockprice_data):
+        if i_sample == 10: break
         
+        merged_sample = {}
+        date = sample['formatted_time']
+        headline_sample = headline_data.get(str(date), [])
+        merged_sample['input'] = headline_sample
+        try:
+            prev_input = {}
+            prev_step = stockprice_data[i_sample-1]
+            prev_input['prev_open'] = prev_step['Open']
+            prev_input['prev_high'] = prev_step['High']
+            prev_input['prev_low'] = prev_step['Low']
+            prev_input['prev_close'] = prev_step['Close*']
+            prev_input['prev_adj_close'] = prev_step['Adj Close**']
+        except:
+            merged_sample['time_input'] = {}
 
 if __name__ == '__main__':
+    print('hello world')
+    
     # process_headlines()
     # merge_headlines_by_date()
     # process_stock_prices()
-    print('hello world')
+    # make_samples()
+    with open('data\stockprice_per_date.json', 'r') as f:
+        data = json.load(f)
+    f.close()
+    for sample in data:
+        if 20200301 < int(sample['formatted_time']):
+            time_lagged = datetime.datetime.strptime(sample['formatted_time'], "%Y%m%d") - timedelta(days=1)
+            epoch_time = time.mktime(time_lagged.timetuple())
+            print(sample['formatted_time'], epoch_time)
+    
     
     
