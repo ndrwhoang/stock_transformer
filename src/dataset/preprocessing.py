@@ -157,14 +157,20 @@ if __name__ == '__main__':
     # merge_headlines_by_date()
     # process_stock_prices()
     # make_samples()
-    with open('data\stockprice_per_date.json', 'r') as f:
-        data = json.load(f)
-    f.close()
-    for sample in data:
-        if 20200301 < int(sample['formatted_time']):
-            time_lagged = datetime.datetime.strptime(sample['formatted_time'], "%Y%m%d") - timedelta(days=1)
-            epoch_time = time.mktime(time_lagged.timetuple())
-            print(sample['formatted_time'], epoch_time)
+    
+    # with open('data\stockprice_per_date.json', 'r') as f:
+    #     data = json.load(f)
+    # f.close()
+    # for sample in data:
+    #     if 20200301 < int(sample['formatted_time']):
+    #         time_lagged = datetime.datetime.strptime(sample['formatted_time'], "%Y%m%d") - timedelta(days=1)
+    #         epoch_time = time.mktime(time_lagged.timetuple())
+    #         print(sample['formatted_time'], epoch_time)
+    
+    # with open('data\headline_per_article.json', 'r') as f:
+    #     data = json.load(f)
+    # df = pd.DataFrame(data)
+    # df.to_csv('data\headline_per_article.csv', index=False)
     
     
     
