@@ -3,9 +3,10 @@ import time
 import datetime
 from datetime import timedelta
 import os
+import csv
 import pandas as pd
 from pprint import pprint
-from operator import itemgetter
+from operator import index, itemgetter
 
 months = {
     'January': '01',
@@ -35,7 +36,7 @@ months = {
 }
 
 def process_headlines():
-    df = pd.read_csv(os.path.join(*'data\mergeddata.csv'.split('\\')),
+    df = pd.read_csv(os.path.join(*'data/covid/mergeddata.csv'.split('\\')),
                      header=0,
                     #  nrows=100
                      )
@@ -70,11 +71,11 @@ def process_headlines():
         # sample['formatted_time'] = date_time
         sample['formatted_time'] = ''.join(formatted_time)
         
-    with open('data\headline_per_article.json', 'w') as f:
+    with open('data/covid/headline_per_article.json', 'w') as f:
         json.dump(data, f)
     
 def merge_headlines_by_date():
-    with open('data\headline_per_article.json', 'r') as f:
+    with open('data/covid/headline_per_article.json', 'r') as f:
         data = json.load(f)
     f.close()
     headline_per_day = {}
@@ -91,7 +92,7 @@ def merge_headlines_by_date():
         elif time in headline_per_day:
             headline_per_day[time].append(headline)
     
-    with open('data/headline_per_date.json', 'w') as f:
+    with open('data/covid/headline_per_date.json', 'w') as f:
         json.dump(headline_per_day, f)
 
 def process_stock_prices():
@@ -118,6 +119,74 @@ def process_stock_prices():
     with open('data\stockprice_per_date.json', 'w') as f:
         json.dump(data, f)
 
+def process_reddit_comments():
+    # For covid
+    df = pd.read_csv(os.path.join(*'data\comment_by_date_feb\combined_comments.csv'.split('\\')),
+                     header=0,
+                    #  nrows=100
+                     )
+    
+    data = df.to_dict('records')
+    print(len(data))
+    data_out = []
+    for i, sample in enumerate(data):
+        # if i == 5: break
+        sample_out = {}
+        date = sample['converted_time'].split(' ')[0].split('-')
+        # normalized_date = [0]*3
+        # normalized_date[0] = date[2]
+        # normalized_date[1] = months[date[0]]
+        # normalized_date[2] = date[1] if len(date[1]) == 2 else '0' + date[1]
+        # normalized_date = [date[2], date[0] if len(date[0]) == 2 else '0' + date[0], date[1] if len(date[1]) == 2 else '0' + date[1]]
+        normalized_date = [date[0], date[1] if len(date[1]) == 2 else '0' + date[1], date[2] if len(date[2]) == 2 else '0' + date[2]]
+
+        
+        sample_out['comment'] = sample['comment']
+        sample_out['formatted_time'] = ''.join(normalized_date)
+        try:
+            sample_out['polarity'] = sample['polarity']
+            sample_out['subjectivity'] = sample['subjectivity']
+        except KeyError:
+            pass
+    
+        if len(sample_out['comment'].split(' ')) > 3 and len(sample_out['comment'].split(' ')) < 200 and 'https://' not in sample_out['comment'] and 'http://' not in sample_out['comment']:
+            data_out.append(sample_out)
+    
+    print(len(data_out))
+    print(data_out)
+    
+    with open('data\comment_by_date_feb\combined_comments.json', 'w') as f:
+        json.dump(data_out, f)
+ 
+def merge_comments_by_date():
+    with open('data\\financris\\reddit_financris_merged.json', 'r') as f:
+        data = json.load(f)
+    comment_per_day = {}
+    try:
+        test = data[0]['polarity']
+        for i_s, sample in enumerate(data):
+            # if i_s == 15: break
+            # comment = sample['comment']
+            # polarity = sample['polarity']
+            # subjectivity = sample['subjectivity']
+            if sample['formatted_time'] not in comment_per_day:
+                comment_per_day[sample['formatted_time']] = [{'comment': sample['comment'].replace('\\n', '').replace('\\r', ''),
+                                                            'polarity': sample['polarity'],
+                                                            'subjectivity': sample['subjectivity']}]
+            else:
+                comment_per_day[sample['formatted_time']].append({'comment': sample['comment'].replace('\\n', '').replace('\\r', ''),
+                                                                'polarity': sample['polarity'],
+                                                                'subjectivity': sample['subjectivity']})
+    except KeyError:
+        for i_s, sample in enumerate(data):
+            if sample['formatted_time'] not in comment_per_day:
+                comment_per_day[sample['formatted_time']] = [{'comment': sample['comment'].replace('\\n', '').replace('\\r', '')}]
+            else:
+                comment_per_day[sample['formatted_time']].append({'comment': sample['comment'].replace('\\n', '').replace('\\r', '')})
+    
+    with open('data\\financris\comment_per_date.json', 'w') as f:
+        json.dump(comment_per_day, f)
+ 
 def make_samples():
     headlines = 'data\headline_per_date.json'
     stockprices = 'data\stockprice_per_date.json'
@@ -150,6 +219,61 @@ def make_samples():
         except:
             merged_sample['time_input'] = {}
 
+def convert_epoch_time():
+    df = pd.read_csv('data\covid\stock.csv',
+                    header=0,
+                #  nrows=100
+                    )
+    data = df.to_dict('records')
+    
+    for sample in data:
+        a = datetime.datetime.strptime(sample['Date'], '%d-%b-%y')
+        a = a - timedelta(days=1)
+        a = a.timestamp()
+        print(sample['Date'], a)
+    
+def process_reddit_comments_fincris():
+    data_paths = []
+    for file in os.listdir('data\\financris'):
+        if file.endswith('.json'):
+            data_paths.append(os.path.join('data', 'financris', file).replace("\\","/"))
+    print(data_paths)
+    
+    data_all = []
+    for data_path in data_paths:
+        with open(data_path, 'r') as f:
+            data = json.load(f)
+        # print(len(data))
+        data_all.extend(data)
+    
+    for i_s, sample in enumerate(data_all):
+        epoch_time = sample['time']
+        formatted_time = time.strftime('%Y%m%d', time.localtime(int(epoch_time)))
+        sample['formatted_time'] = formatted_time    
+    
+    data_out = []
+    for i_s, sample in enumerate(data_all):
+        if len(sample['comment'].split(' ')) > 3 and len(sample['comment'].split(' ')) < 200 and 'https://' not in sample['comment'] and 'http://' not in sample['comment']:
+            data_out.append(sample)
+
+    
+    with open('data\\financris\\reddit_financris_merged.json', 'w') as f:
+        json.dump(data_out, f)
+
+
+def merge_reddit_comments_fincris():
+    data_paths = []
+    for file in os.listdir('data\comment_by_date_feb'):
+        if file.endswith('.csv'):
+            data_paths.append(os.path.join('data', 'comment_by_date_feb', file).replace("\\","/"))
+    print(data_paths)
+    combined_csv = pd.concat([pd.read_csv(f) for f in data_paths])
+    df_out = combined_csv[['subreddit', 'body', 'created_utc']]
+    df_out = df_out.rename(columns={'body': 'comment'})
+    df_out['converted_time'] = pd.to_datetime(df_out['created_utc'], unit='s')
+    df_out.to_csv('data\comment_by_date_feb\combined_comments.csv', index=False)
+        
+
 if __name__ == '__main__':
     print('hello world')
     
@@ -157,20 +281,14 @@ if __name__ == '__main__':
     # merge_headlines_by_date()
     # process_stock_prices()
     # make_samples()
+    # merge_comments_by_date()
+    # merge_reddit_comments_fincris()
     
-    # with open('data\stockprice_per_date.json', 'r') as f:
-    #     data = json.load(f)
-    # f.close()
-    # for sample in data:
-    #     if 20200301 < int(sample['formatted_time']):
-    #         time_lagged = datetime.datetime.strptime(sample['formatted_time'], "%Y%m%d") - timedelta(days=1)
-    #         epoch_time = time.mktime(time_lagged.timetuple())
-    #         print(sample['formatted_time'], epoch_time)
-    
-    # with open('data\headline_per_article.json', 'r') as f:
-    #     data = json.load(f)
-    # df = pd.DataFrame(data)
-    # df.to_csv('data\headline_per_article.csv', index=False)
-    
-    
-    
+    # process_reddit_comments_fincris()
+    # convert_epoch_time()
+    # process_reddit_comments()
+    with open('data\\financris\\reddit_financris_merged.json', 'r') as f:
+        data = json.load(f)
+    df = pd.DataFrame(data)
+    print(df.head())
+    # df.to_excel('data\\financris\\reddit_financris_merged.xlsx', index=False)

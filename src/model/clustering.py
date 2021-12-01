@@ -55,27 +55,8 @@ def _kmeans_clustering(headlines, embedding_array):
         # for cluster, hlines in headline_by_cluster.items():
         #         print(cluster, hlines[:5])
         
-def _merge_data_to_final():
-    with open('data\headline_per_date.json', 'r') as f:
-        headlines = json.load(f)
-    
-    with open('data\stockprice_per_date.json', 'r') as f:
-        stocks = json.load(f)
-    
-    out = {}
-    
-    for i_sample, sample in enumerate(stocks):
-        if i_sample == 15: break
-        out_sample = {}
-        date = sample['formatted_time']
-        headline_for_date = headlines.get(date, [])
-        
-        out_sample['time'] = date
-        # out_sample['headlines'] = 
-    
 
-if __name__ == '__main__':
-    print('hello world')
+def make_daily_headline_clustering():
     model = SentenceTransformer('all-MiniLM-L6-v2')
     data_out = {}
     
@@ -102,9 +83,6 @@ if __name__ == '__main__':
     
     print(len(data_out))
     
-    # with open('data\headline_with_cluster_per_filtered_date.json', 'w') as f:
-    #     json.dump(data_out, f)
-    
     aggregated_data = {}
     for date, headlines in data_out.items():
         cluster_embeddings = {}
@@ -122,6 +100,16 @@ if __name__ == '__main__':
         
     with open('data\\aggregated_headline_by_date.json', 'w') as f:
         json.dump(aggregated_data, f)
+
+
+
+
+if __name__ == '__main__':
+    print('hello world')
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    data_out = {}
+    
+    
     
         
         
