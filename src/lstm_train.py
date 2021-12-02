@@ -1,11 +1,12 @@
 import torch
 torch.manual_seed(0)
+import random
 import torch.nn as nn
 import numpy as np
 import pandas as pd
 import json
 from operator import itemgetter
-from pprint import pprint
+from tqdm import tqdm
 from src.model.lstm import BaseLSTM
 
 
@@ -82,8 +83,9 @@ def do_train(model, training_data, n_epoch, lr, device):
     
     for i in range(n_epoch):
         mae = 0
-        training_data = training_data.shuffle()
-        for i_s, sample in enumerate(training_data):
+        random.shuffle(training_data)
+        pbar = tqdm(enumerate(training_data))
+        for i_s, sample in pbar:
             sample = tuple(item.to(device) for item in sample)  
             (input_seq, target) = sample        
             model.hidden_cell = (torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'), 
@@ -93,8 +95,8 @@ def do_train(model, training_data, n_epoch, lr, device):
             # if i_s > 50 and i_s < 55:
             #     print(out[0].item(), target[0].item())
             
-            if i == n_epoch-1:
-                print(input_seq[:,0].tolist(), out.tolist(), target.tolist())
+            # if i == n_epoch-1:
+            #     print(input_seq[:,0].tolist(), out.tolist(), target.tolist())
             
             loss = loss_fn(out, target.unsqueeze(1))
             with torch.no_grad():
@@ -102,8 +104,10 @@ def do_train(model, training_data, n_epoch, lr, device):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
+            pbar.set_description(f'Epoch {i} - {i_s} / {len(training_data)} - loss: {loss}')
         
-        print(f'================ Epoch {i} MAE: {loss}')
+        # print(f'================ Epoch {i} MAE: {loss}')
 
 def base_lstm_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
