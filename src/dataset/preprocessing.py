@@ -260,7 +260,6 @@ def process_reddit_comments_fincris():
     with open('data\\financris\\reddit_financris_merged.json', 'w') as f:
         json.dump(data_out, f)
 
-
 def merge_reddit_comments_fincris():
     data_paths = []
     for file in os.listdir('data\comment_by_date_feb'):
@@ -273,7 +272,48 @@ def merge_reddit_comments_fincris():
     df_out['converted_time'] = pd.to_datetime(df_out['created_utc'], unit='s')
     df_out.to_csv('data\comment_by_date_feb\combined_comments.csv', index=False)
         
-
+def sentiment_per_date():
+    with open('data\covid\stockprice_per_date.json', 'r') as f:
+        data = json.load(f)
+    print(len(data))
+    
+    data = sorted(data, key=itemgetter('formatted_time')) 
+    data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
+    
+    with open('data\covid\\reddit_covid_sentiment.json', 'r') as f:
+        sentiment = json.load(f)
+    
+    date_comment = {}
+    for i_c, comment in enumerate(sentiment):
+        polarity = comment['polarity']
+        subjectivity = comment['subjectivity']
+        if polarity * subjectivity != 0:
+            if comment['formatted_time'] not in date_comment:
+                date_comment[int(comment['formatted_time'])] = {
+                    'polarity': [polarity],
+                    'subjectivity': [subjectivity]
+                }
+            else:
+                date_comment[int(comment['formatted_time'])]['polarity'].append(polarity)
+                date_comment[int(comment['formatted_time'])]['subjectivity'].append(subjectivity)
+    
+    for i_s, sample in enumerate(data):
+        try:
+            polarity = date_comment[int(sample['formatted_time'])]['polarity']
+            subjectivity = date_comment[int(sample['formatted_time'])]['subjectivity']
+            dm_polarity = sum(polarity) / len(polarity)
+            dm_subjectivity = sum(subjectivity) / len(subjectivity)
+            sample['reddit_polarity'] = dm_polarity
+            sample['reddit_subjectivity'] = dm_subjectivity
+        except KeyError:
+            pass
+        
+    with open('data\covid\stock_with_covid_sentiment.json', 'w') as f:
+        json.dump(data, f)
+        
+    
+        
+    
 if __name__ == '__main__':
     print('hello world')
     
@@ -287,8 +327,5 @@ if __name__ == '__main__':
     # process_reddit_comments_fincris()
     # convert_epoch_time()
     # process_reddit_comments()
-    with open('data\\financris\\reddit_financris_merged.json', 'r') as f:
-        data = json.load(f)
-    df = pd.DataFrame(data)
-    print(df.head())
-    # df.to_excel('data\\financris\\reddit_financris_merged.xlsx', index=False)
+    
+    sentiment_per_date()
