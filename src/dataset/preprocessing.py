@@ -96,7 +96,7 @@ def merge_headlines_by_date():
         json.dump(headline_per_day, f)
 
 def process_stock_prices():
-    df = pd.read_csv(os.path.join(*'data\stock.csv'.split('\\')),
+    df = pd.read_csv(os.path.join(*'data\\financris\stock_2008.csv'.split('\\')),
                      header = 0,
                     #  nrows=100
                      )
@@ -116,7 +116,7 @@ def process_stock_prices():
         
         sample['formatted_time'] = ''.join(formatted_time)
         
-    with open('data\stockprice_per_date.json', 'w') as f:
+    with open('data\\financris\stockprice_per_date.json', 'w') as f:
         json.dump(data, f)
 
 def process_reddit_comments():
@@ -260,6 +260,72 @@ def process_reddit_comments_fincris():
     with open('data\\financris\\reddit_financris_merged.json', 'w') as f:
         json.dump(data_out, f)
 
+def _merge_training_data_with_sentiment():
+    print('Start loading data')
+    with open('data\\financris\stockprice_per_date.json', 'r') as f:
+        data = json.load(f)
+    data = sorted(data, key=itemgetter('formatted_time')) 
+    # data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
+        
+    sentiment_data = pd.read_csv('data\\financris\\2008crisisdata.csv')
+    sentiment_data = sentiment_data.to_dict('records')
+    
+    headline_out = {}
+    comment_out = {}
+    for i_c, sample in enumerate(sentiment_data):
+        polarity = sample['polarity']
+        subjectivity = sample['subjectivity']
+        try:
+            time = int(sample['time'])
+        except:
+            ditmemergecaifilenguvaicalon = sample['time'].split(' ')[0].split('-')
+            date = ditmemergecaifilenguvaicalon
+            time = [date[0], date[1] if len(date[1]) == 2 else '0' + date[1], date[2] if len(date[2]) == 2 else '0' + date[2]]                
+            time = int(''.join(time))
+        if polarity * subjectivity != 0:
+            if sample['type'] == 'comment':
+                # dit con me thang dau buoi re rach cho code roi ma van deo biet doi ngay thang
+                if time not in headline_out:
+                    headline_out[time] = {
+                        'polarity': [polarity],
+                        'subjectivity': [subjectivity]
+                    }
+                else:
+                    headline_out[time]['polarity'].append(polarity)
+                    headline_out[time]['subjectivity'].append(subjectivity)
+            else:
+                if time not in comment_out:
+                    comment_out[time] = {
+                        'polarity': [polarity],
+                        'subjectivity': [subjectivity]
+                    }
+                else:
+                    comment_out[time]['polarity'].append(polarity)
+                    comment_out[time]['subjectivity'].append(subjectivity)
+        
+    
+    for i_s, sample in enumerate(data):
+        polarity = headline_out.get(int(sample['formatted_time']), {'polarity': [0]})['polarity']
+        subjectivity = headline_out.get(int(sample['formatted_time']), {'subjectivity': [0]})['subjectivity']
+        avg_hpol = sum(polarity) / len(polarity)
+        avg_hsub = sum(subjectivity) / len(subjectivity)
+        
+        polarity = comment_out.get(int(sample['formatted_time']), {'polarity': [0]})['polarity']
+        subjectivity = comment_out.get(int(sample['formatted_time']), {'subjectivity': [0]})['subjectivity']
+        avg_rpol = sum(polarity) / len(polarity)
+        avg_rsub = sum(subjectivity) / len(subjectivity)
+        
+        
+        sample['reddit_polarity'] = avg_rpol
+        sample['reddit_subjectivity'] = avg_rsub 
+        sample['headline_polarity'] = avg_hpol
+        sample['headline_subjectivity'] = avg_hsub
+
+    
+    with open('data\\financris\\full.json', 'w') as of:
+        json.dump(data, of)
+
+
 def merge_reddit_comments_fincris():
     data_paths = []
     for file in os.listdir('data\comment_by_date_feb'):
@@ -328,4 +394,5 @@ if __name__ == '__main__':
     # convert_epoch_time()
     # process_reddit_comments()
     
-    sentiment_per_date()
+    # sentiment_per_date()
+    process_stock_prices()

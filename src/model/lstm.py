@@ -2,6 +2,25 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
+class OFLinear(nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.input_dim = input_dim
+        self.hidden_cell = None
+        
+        self.linear_1 = nn.Linear(self.input_dim, self.hidden_dim)
+        self.linear_2 = nn.Linear(self.hidden_dim, 1)
+        self.activation = nn.ReLU()
+        
+    def forward(self, batch):
+        (input_id, target) = batch
+        out = self.activation(self.linear_1(input_id))
+        out = self.linear_2(out)
+        
+        return out
+        
+
 class BaseLSTM(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super().__init__()

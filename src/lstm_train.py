@@ -7,7 +7,7 @@ import pandas as pd
 import json
 from operator import itemgetter
 from tqdm import tqdm
-from src.model.lstm import BaseLSTM
+from src.model.lstm import BaseLSTM, OFLinear
 
 
 def load_training_data(window, future, price_type):
@@ -121,13 +121,20 @@ def base_lstm_train():
 def sentiment_lstm_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = BaseLSTM(5, 800)
-    data = load_training_data_with_sentiment(2, 0, 'Close*')
+    data = load_training_data_with_sentiment(3, 0, 'Close*')
     # for sample in data['training_data']:
     #     print(sample[0].size())
     #     print(sample[0][:, 0], sample[1])
     model.to(device)
     do_train(model, data['training_data'], 50, 0.01, device)
 
+def linear_train():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = OFLinear(5, 200)
+    data = load_training_data_with_sentiment(5, 0, 'Close*')
+    model.to(device)
+    do_train(model, data['training_data'], 50, 0.01, device)
+ 
 def _merge_training_data_with_sentiment():
     print('Start loading data')
     with open('data\covid\stock_with_covid_sentiment.json', 'r') as f:
@@ -164,8 +171,8 @@ def _merge_training_data_with_sentiment():
     with open('data\covid\\full.json', 'w') as f:
         json.dump(data, f)
     
-
 if __name__ == '__main__':
     print('hello world')
-    base_lstm_train()
+    # base_lstm_train()
+    _merge_training_data_with_sentiment()
     

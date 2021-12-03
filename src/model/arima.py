@@ -1,4 +1,5 @@
 from statsmodels.tsa.arima.model import ARIMA
+import statsmodels.api as sm
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -51,7 +52,7 @@ def load_df_ts(path, price_type):
                             'price': float(sample[price_type])})
     
     df_ts = pd.DataFrame(time_series)
-    # df_ts = df_ts[df_ts['formatted_time'] > 20200301]
+    df_ts = df_ts[df_ts['formatted_time'] > 20200301]
     df_ts.sort_values(by=['formatted_time'], inplace=True)
     # df_ts.to_csv('test.csv', index=False)
     
@@ -99,16 +100,18 @@ def arima_grid_search(df_ts):
 
 if __name__ == '__main__':
     print('hello world')
-    results = []
-    for s_type in tqdm(['Open', 'High', 'Low', 'Adj Close**', 'Close*']):
-        # Data loading
-        df_ts = load_df_ts('data\\financris\stock_2008.csv', s_type)
-        
-        # ARIMA Modeling
-        out = arima_grid_search(df_ts)
-        results.append([s_type, out])
     
-    print(results)
+    
+    # results = []
+    # for s_type in tqdm(['Open', 'High', 'Low', 'Adj Close**', 'Close*']):
+    #     # Data loading
+    #     df_ts = load_df_ts('data\\financris\stock_2008.csv', s_type)
+        
+    #     # ARIMA Modeling
+    #     out = arima_grid_search(df_ts)
+    #     results.append([s_type, out])
+    
+    # print(results)
     
     # df_ts = load_df_ts('data\\financris\stock_2008.csv', 'Open')
     # mape = arima_fit(11, 1, 7, df_ts)
