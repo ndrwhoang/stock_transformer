@@ -38,16 +38,16 @@ class BaseLSTM(nn.Module):
         self.activation = nn.ReLU()
         # self.hidden_state = torch.zeros(self.n_layer, self.bs, self.hidden_dim, device='cuda:0')
         # self.cell_state = torch.zeros(self.n_layer, self.bs, self.hidden_dim, device='cuda:0')
-        self.hidden_cell = (torch.zeros(self.n_layer,1,self.hidden_dim, device='cuda:0'),
-                            torch.zeros(self.n_layer,1,self.hidden_dim, device='cuda:0'))
+        # self.hidden_cell = (torch.zeros(self.n_layer,1,self.hidden_dim, device='cuda:0'),
+        #                     torch.zeros(self.n_layer,1,self.hidden_dim, device='cuda:0'))
         
     def forward(self, batch):
         (input_id, target) = batch
         # input_id = input_id[None, :, None]
         # print(input_.size())
-        lstm_out, self.hidden_cell = self.lstm(input_id.view(len(input_id) ,1, -1), self.hidden_cell)
+        lstm_out, _ = self.lstm(input_id.view(len(input_id) ,1, -1))
         # print(lstm_out.size())
-        out = self.out(lstm_out.view(len(input_id), -1))
+        out = self.out(lstm_out.view(len(input_id), -1)[-1])
         
         return out
     

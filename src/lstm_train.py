@@ -10,7 +10,7 @@ from tqdm import tqdm
 from src.model.lstm import BaseLSTM, OFLinear
 
 
-def load_training_data(window, future, price_type):
+def load_data(window, future, price_type):
     print('Start loading data')
     with open('data\covid\stockprice_per_date.json', 'r') as f:
         data = json.load(f)
@@ -40,15 +40,18 @@ def load_training_data(window, future, price_type):
     
     return {'training_data': training_data}
 
-def load_training_data_with_sentiment(window, future, price_type):
+def load_data_with_sentiment(window, future, price_type):
     print('Start loading data')
-    with open('data\covid\\full.json', 'r') as f:
+    with open('data\\financris\\full_2008.json', 'r') as f:
         data = json.load(f)
         
     data = sorted(data, key=itemgetter('formatted_time')) 
-    data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
+    # data = [sample for sample in data if int(sample['formatted_time']) > 20200201]
     
     price_series = [float(sample[price_type].replace(',', '')) for sample in data]   
+    split_index = int(0.72*len(price_series))
+    mean_price = sum(price_series[:split_index]) / len(price_series[:split_index])
+    price_series = [i - mean_price for i in price_series]
     reddit_pol_series, reddit_sub_series = [0], [0]
     headline_pol_series, headline_sub_series = [0], [0]
     for i in range(1, len(data)):
@@ -69,17 +72,22 @@ def load_training_data_with_sentiment(window, future, price_type):
         hsub_seq = torch.tensor(headline_sub_series[i: i+window], dtype=torch.float)
         input_seq = torch.stack([price_seq, rpol_seq, rsub_seq, hpol_seq, hsub_seq], dim=1)
         # target = closing_series[i+window+future:i+window+future+1]
-        target_seq = torch.tensor(price_series[i+1:i+window+1], dtype=torch.float)
+        target_seq = torch.tensor(price_series[i+window:i+window+1], dtype=torch.float)
         training_data.append((input_seq, target_seq))
     
+    split_index = int(0.72*len(training_data))
+    train = training_data[:split_index]
+    test = training_data[split_index:]
+    
     print(f'Finished loading data, n_sample : {len(training_data)}')
-    return {'training_data': training_data}
+    return {'training_data': train, 'testing_data': test}
 
 def do_train(model, training_data, n_epoch, lr, device):
     # training_data = data['training_data']
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # loss_fn = nn.MSELoss()
     loss_fn = nn.L1Loss()
+    n_step = len(training_data)
     
     for i in range(n_epoch):
         mae = 0
@@ -88,8 +96,8 @@ def do_train(model, training_data, n_epoch, lr, device):
         for i_s, sample in pbar:
             sample = tuple(item.to(device) for item in sample)  
             (input_seq, target) = sample        
-            model.hidden_cell = (torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'), 
-                                 torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'))  
+            # model.hidden_cell = (torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'), 
+            #                      torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'))  
             out = model(sample)
             
             # if i_s > 50 and i_s < 55:
@@ -100,33 +108,65 @@ def do_train(model, training_data, n_epoch, lr, device):
             
             loss = loss_fn(out, target.unsqueeze(1))
             with torch.no_grad():
-                mae += torch.mean(torch.abs(out - target))
+                mae += torch.abs(out - target)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
-            pbar.set_description(f'Epoch {i} - {i_s} / {len(training_data)} - loss: {loss}')
+            pbar.set_description(f'Epoch {i} - {i_s} / {n_step} - loss: {loss}')
         
-        # print(f'================ Epoch {i} MAE: {loss}')
+        print(f'================ Epoch {i} MAE: {mae/n_step}')
+        
+    return model
+
+def do_valid(model, validation_data, device):
+    mae = 0
+    loss_fn = nn.L1Loss()
+    random.shuffle(validation_data)
+    pbar = tqdm(enumerate(validation_data))
+    n_step = len(validation_data)
+    for i_s, sample in pbar:
+        sample = tuple(item.to(device) for item in sample)  
+        (input_seq, target) = sample        
+        out = model(sample)
+        
+        # if i == n_epoch-1:
+        #     print(input_seq[:,0].tolist(), out.tolist(), target.tolist())
+        with torch.no_grad():
+            loss = loss_fn(out, target.unsqueeze(1))
+            mae += torch.abs(out - target)
+    
+    print(f'================ Validation MAE: {mae/n_step}')
 
 def base_lstm_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = BaseLSTM(1, 800)
-    data = load_training_data(3, 0, 'Close*')
+    data = load_data(20, 0, 'Close*')
     # for sample in data['training_data']:
     #     print(sample)
     model.to(device)
     do_train(model, data['training_data'], 50, 0.01, device)
+    
+    return model
 
 def sentiment_lstm_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = BaseLSTM(5, 800)
-    data = load_training_data_with_sentiment(3, 0, 'Close*')
+    
+    model_input = 5
+    model_hidden = 10
+    window = 10
+    skip_forecast = 0
+    n_epoch = 30
+    lr = 0.01
+    
+    model = BaseLSTM(model_input, model_hidden)
+    data = load_data_with_sentiment(window, skip_forecast, 'Close*')
     # for sample in data['training_data']:
     #     print(sample[0].size())
     #     print(sample[0][:, 0], sample[1])
     model.to(device)
-    do_train(model, data['training_data'], 50, 0.01, device)
+    model = do_train(model, data['training_data'], n_epoch, lr, device)
+    do_valid(model, data['testing_data'], device)
 
 def linear_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -173,6 +213,5 @@ def _merge_training_data_with_sentiment():
     
 if __name__ == '__main__':
     print('hello world')
-    # base_lstm_train()
-    _merge_training_data_with_sentiment()
+    sentiment_lstm_train()
     
