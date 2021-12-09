@@ -14,7 +14,7 @@ def json_to_dataframe(path, price_type):
         data = json.load(f)
     
     data = sorted(data, key=itemgetter('formatted_time')) 
-    data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
+    # data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
     
     price_series = [float(sample[price_type].replace(',', '')) for sample in data]
     time_series = [sample['formatted_time'] for sample in data]
@@ -26,6 +26,8 @@ def json_to_dataframe(path, price_type):
         headline_pol_series.append(data[i-1].get('headline_polarity', 0))
         headline_sub_series.append(data[i-1].get('headline_subjectivity', 0))
     
+    # print(len(price_series))
+    # print(len(reddit_pol_series))
     assert len(price_series) == len(reddit_pol_series)
     assert len(price_series) == len(reddit_sub_series)
     assert len(price_series) == len(headline_pol_series)
@@ -40,13 +42,29 @@ def json_to_dataframe(path, price_type):
     # df_ts.sort_values(by=['formatted_time'], inplace=True)
     return df
 
+
+
 if __name__ == '__main__':
     print('hello world')
-    # df = json_to_dataframe('data\covid\\full.json', 'Close*')
-    # sarimax = SARIMAX(endog = df['price'], 
-    #                   exog = df[['rpol', 'rsub', 'hpol', 'hsub']],
-    #                   order = (2, 1, 2))
-    # model = sarimax.fit()
+    # df = json_to_dataframe('data\\financris\\full_2008.json', 'Close*')
+    df = json_to_dataframe('data\covid\\full_2020.json', 'Close*')
+    split_index = int(0.72*len(df))
+    df_train = df.iloc[:split_index, :]
+    df_test = df.iloc[split_index:, :]
+    sarimax = SARIMAX(endog = df_train['price'], 
+                      exog = df_train[['rpol', 'rsub', 'hpol', 'hsub']],
+                      order = (2, 1, 2))
+    model = sarimax.fit()
+    pred = model.get_prediction(start=0, end=len(df_test),
+                                exog = df_test[['rpol', 'rsub', 'hpol', 'hsub']]
+                                )
+    forecast = list(pred.predicted_mean)[1:]
+    golds = df['price'].tolist()[1:]
+    ae = 0
+    for i, j in zip(forecast, golds):
+        ae += abs(i-j)
+    mae = ae / len(golds)
+    print(mae)
     # resid = [abs(round(err, 4)) for err in model.resid]
     # mae = sum(resid[1:]) / len(resid[1:])
     # print(mae)

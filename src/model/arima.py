@@ -52,8 +52,9 @@ def load_df_ts(path, price_type):
                             'price': float(sample[price_type])})
     
     df_ts = pd.DataFrame(time_series)
-    df_ts = df_ts[df_ts['formatted_time'] > 20200301]
+    # df_ts = df_ts[df_ts['formatted_time'] > 20200201]
     df_ts.sort_values(by=['formatted_time'], inplace=True)
+    assert len(df_ts) > 1
     # df_ts.to_csv('test.csv', index=False)
     
     return df_ts
@@ -67,14 +68,14 @@ def arima_fit(p, d, q, df_ts):
     arima_kousei = ARIMA(train_data['price'].values, order=order)
     model = arima_kousei.fit()
     # print(model.summary())
-    resid = [abs(round(err, 3)) for err in model.resid]
-    ape = [abs(err) / abs(gold) for gold, err in zip(train_data['price'].values, resid)]
-    mape = sum(ape) / len(ape)
+    # resid = [abs(round(err, 3)) for err in model.resid]
+    # ape = [abs(err) / abs(gold) for gold, err in zip(train_data['price'].values, resid)]
+    # mape = sum(ape) / len(ape)
     # print(resid)
     # mae = sum(resid[1:]) / len(resid[1:])
     # print(mae)
     
-    return mape
+    return model
 
 def arima_grid_search(df_ts):
     best_loss = 100000
@@ -112,8 +113,16 @@ if __name__ == '__main__':
     #     results.append([s_type, out])
     
     # print(results)
-    
-    # df_ts = load_df_ts('data\\financris\stock_2008.csv', 'Open')
-    # mape = arima_fit(11, 1, 7, df_ts)
-    # print(mape)
-    
+        
+    df = load_df_ts('data\\financris\stock_2008.csv', 'Open')
+    split_index = int(0.72*len(df))
+    df_train = df.iloc[:split_index, :]
+    df_test = df.iloc[split_index:, :]
+    model = arima_fit(2, 1, 3, df_train)
+    out = model.forecast(len(df_test))
+    assert len(out) == len(df_test['price'])
+    ae = 0
+    for i, j in zip(out, df_test['price'].tolist()):
+        ae += abs(i-j)
+    mae = ae / len(df_test['price'])
+    print(mae)

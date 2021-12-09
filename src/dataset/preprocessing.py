@@ -262,12 +262,12 @@ def process_reddit_comments_fincris():
 
 def _merge_training_data_with_sentiment():
     print('Start loading data')
-    with open('data\\financris\stockprice_per_date.json', 'r') as f:
+    with open('data\covid\stockprice_per_date.json', 'r') as f:
         data = json.load(f)
     data = sorted(data, key=itemgetter('formatted_time')) 
-    # data = [sample for sample in data if int(sample['formatted_time']) > 20200301]
+    data = [sample for sample in data if int(sample['formatted_time']) > 20200201]
         
-    sentiment_data = pd.read_csv('data\\financris\\2008crisisdata.csv')
+    sentiment_data = pd.read_csv('data\covid\covid19data.csv')
     sentiment_data = sentiment_data.to_dict('records')
     
     headline_out = {}
@@ -275,13 +275,19 @@ def _merge_training_data_with_sentiment():
     for i_c, sample in enumerate(sentiment_data):
         polarity = sample['polarity']
         subjectivity = sample['subjectivity']
+        # if len(sample['time'].split(' ')[0].split('/')) != 3:
+        #     continue
         try:
             time = int(sample['time'])
         except:
-            ditmemergecaifilenguvaicalon = sample['time'].split(' ')[0].split('-')
+            ditmemergecaifilenguvaicalon = sample['time'].split(' ')[0].split('/')
             date = ditmemergecaifilenguvaicalon
-            time = [date[0], date[1] if len(date[1]) == 2 else '0' + date[1], date[2] if len(date[2]) == 2 else '0' + date[2]]                
-            time = int(''.join(time))
+            try:
+                time = [date[2], date[0] if len(date[0]) == 2 else '0' + date[0], date[1] if len(date[1]) == 2 else '0' + date[1]]                
+                time = int(''.join(time))
+            except:
+                continue
+            
         if polarity * subjectivity != 0:
             if sample['type'] == 'comment':
                 # dit con me thang dau buoi re rach cho code roi ma van deo biet doi ngay thang
@@ -322,7 +328,7 @@ def _merge_training_data_with_sentiment():
         sample['headline_subjectivity'] = avg_hsub
 
     
-    with open('data\\financris\\full.json', 'w') as of:
+    with open('data\\covid\\full.json', 'w') as of:
         json.dump(data, of)
 
 
@@ -395,4 +401,4 @@ if __name__ == '__main__':
     # process_reddit_comments()
     
     # sentiment_per_date()
-    process_stock_prices()
+    _merge_training_data_with_sentiment()
