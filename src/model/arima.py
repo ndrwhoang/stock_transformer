@@ -115,11 +115,11 @@ if __name__ == '__main__':
     # print(results)
         
     df = load_df_ts('data\\financris\stock_2008.csv', 'Open')
-    split_index = int(0.72*len(df))
+    split_index = int(0.7*len(df))
     df_train = df.iloc[:split_index, :]
     df_test = df.iloc[split_index:, :]
-    model = arima_fit(2, 1, 3, df_train)
-    out = model.forecast(len(df_test))
+    model = arima_fit(2, 1, 3, df)
+    out = model.predict(start=split_index, end=len(df)-1)
     assert len(out) == len(df_test['price'])
     ae = 0
     for i, j in zip(out, df_test['price'].tolist()):

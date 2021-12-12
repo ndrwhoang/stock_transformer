@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
+from sentence_transformers import SentenceTransformer
 
 class OFLinear(nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -34,8 +35,8 @@ class BaseLSTM(nn.Module):
                             num_layers = self.n_layer,
                             # batch_first = True
                             )
+        self.out_2 = nn.Linear(self.hidden_dim, self.hidden_dim)
         self.out = nn.Linear(self.hidden_dim, 1)
-        self.activation = nn.ReLU()
         # self.hidden_state = torch.zeros(self.n_layer, self.bs, self.hidden_dim, device='cuda:0')
         # self.cell_state = torch.zeros(self.n_layer, self.bs, self.hidden_dim, device='cuda:0')
         # self.hidden_cell = (torch.zeros(self.n_layer,1,self.hidden_dim, device='cuda:0'),
@@ -43,11 +44,12 @@ class BaseLSTM(nn.Module):
         
     def forward(self, batch):
         (input_id, target) = batch
-        # input_id = input_id[None, :, None]
-        # print(input_.size())
-        lstm_out, _ = self.lstm(input_id.view(len(input_id) ,1, -1))
+        input_id = input_id.unsqueeze(1)
+        lstm_out, _ = self.lstm(input_id)
+        # lstm_out, _ = self.lstm(input_id.view(len(input_id) ,1, -1))
         # print(lstm_out.size())
-        out = self.out(lstm_out.view(len(input_id), -1)[-1])
-        
+        out = self.out_2(lstm_out)
+        out = self.out(out)
+        out = out[-1, 0, 0]
         return out
     

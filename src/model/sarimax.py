@@ -18,13 +18,13 @@ def json_to_dataframe(path, price_type):
     
     price_series = [float(sample[price_type].replace(',', '')) for sample in data]
     time_series = [sample['formatted_time'] for sample in data]
-    reddit_pol_series, reddit_sub_series = [0], [0]
-    headline_pol_series, headline_sub_series = [0], [0]
-    for i in range(1, len(data)):
-        reddit_pol_series.append(data[i-1].get('reddit_polarity', 0))
-        reddit_sub_series.append(data[i-1].get('reddit_subjectivity', 0))
-        headline_pol_series.append(data[i-1].get('headline_polarity', 0))
-        headline_sub_series.append(data[i-1].get('headline_subjectivity', 0))
+    reddit_pol_series, reddit_sub_series = [], []
+    headline_pol_series, headline_sub_series = [], []
+    for i in range(0, len(data)):
+        reddit_pol_series.append(data[i].get('reddit_polarity', 0))
+        reddit_sub_series.append(data[i].get('reddit_subjectivity', 0))
+        headline_pol_series.append(data[i].get('headline_polarity', 0))
+        headline_sub_series.append(data[i].get('headline_subjectivity', 0))
     
     # print(len(price_series))
     # print(len(reddit_pol_series))
@@ -48,13 +48,14 @@ if __name__ == '__main__':
     print('hello world')
     # df = json_to_dataframe('data\\financris\\full_2008.json', 'Close*')
     df = json_to_dataframe('data\covid\\full_2020.json', 'Close*')
-    split_index = int(0.72*len(df))
+    split_index = int(0.7*len(df))
     df_train = df.iloc[:split_index, :]
     df_test = df.iloc[split_index:, :]
     sarimax = SARIMAX(endog = df_train['price'], 
                       exog = df_train[['rpol', 'rsub', 'hpol', 'hsub']],
                       order = (2, 1, 2))
     model = sarimax.fit()
+    print(model.summary())
     pred = model.get_prediction(start=0, end=len(df_test),
                                 exog = df_test[['rpol', 'rsub', 'hpol', 'hsub']]
                                 )

@@ -95,8 +95,8 @@ def merge_headlines_by_date():
     with open('data/covid/headline_per_date.json', 'w') as f:
         json.dump(headline_per_day, f)
 
-def process_stock_prices():
-    df = pd.read_csv(os.path.join(*'data\\financris\stock_2008.csv'.split('\\')),
+def process_stock_prices(path_in):
+    df = pd.read_csv(os.path.join(*path_in.split('\\')),
                      header = 0,
                     #  nrows=100
                      )
@@ -116,7 +116,7 @@ def process_stock_prices():
         
         sample['formatted_time'] = ''.join(formatted_time)
         
-    with open('data\\financris\stockprice_per_date.json', 'w') as f:
+    with open(path_in.replace('.csv', '.json'), 'w') as f:
         json.dump(data, f)
 
 def process_reddit_comments():
@@ -124,7 +124,7 @@ def process_reddit_comments():
     df = pd.read_csv(os.path.join(*'data\comment_by_date_feb\combined_comments.csv'.split('\\')),
                      header=0,
                     #  nrows=100
-                     )
+                    )
     
     data = df.to_dict('records')
     print(len(data))
@@ -262,12 +262,12 @@ def process_reddit_comments_fincris():
 
 def _merge_training_data_with_sentiment():
     print('Start loading data')
-    with open('data\covid\stockprice_per_date.json', 'r') as f:
+    with open('data\\normal\stocknormaltime.json', 'r') as f:
         data = json.load(f)
     data = sorted(data, key=itemgetter('formatted_time')) 
     data = [sample for sample in data if int(sample['formatted_time']) > 20200201]
         
-    sentiment_data = pd.read_csv('data\covid\covid19data.csv')
+    sentiment_data = pd.read_csv('data\\normal\\normaldata.csv')
     sentiment_data = sentiment_data.to_dict('records')
     
     headline_out = {}
@@ -288,26 +288,36 @@ def _merge_training_data_with_sentiment():
             except:
                 continue
             
+        # if polarity * subjectivity != 0:
+        #     if sample['type'] == 'comment':
+        #         # dit con me thang dau buoi re rach cho code roi ma van deo biet doi ngay thang
+        #         if time not in headline_out:
+        #             headline_out[time] = {
+        #                 'polarity': [polarity],
+        #                 'subjectivity': [subjectivity]
+        #             }
+        #         else:
+        #             headline_out[time]['polarity'].append(polarity)
+        #             headline_out[time]['subjectivity'].append(subjectivity)
+        #     else:
+        #         if time not in comment_out:
+        #             comment_out[time] = {
+        #                 'polarity': [polarity],
+        #                 'subjectivity': [subjectivity]
+        #             }
+        #         else:
+        #             comment_out[time]['polarity'].append(polarity)
+        #             comment_out[time]['subjectivity'].append(subjectivity)
+                    
         if polarity * subjectivity != 0:
-            if sample['type'] == 'comment':
-                # dit con me thang dau buoi re rach cho code roi ma van deo biet doi ngay thang
-                if time not in headline_out:
-                    headline_out[time] = {
-                        'polarity': [polarity],
-                        'subjectivity': [subjectivity]
-                    }
-                else:
-                    headline_out[time]['polarity'].append(polarity)
-                    headline_out[time]['subjectivity'].append(subjectivity)
+            if time not in comment_out:
+                comment_out[time] = {
+                    'polarity': [polarity],
+                    'subjectivity': [subjectivity]
+                }
             else:
-                if time not in comment_out:
-                    comment_out[time] = {
-                        'polarity': [polarity],
-                        'subjectivity': [subjectivity]
-                    }
-                else:
-                    comment_out[time]['polarity'].append(polarity)
-                    comment_out[time]['subjectivity'].append(subjectivity)
+                comment_out[time]['polarity'].append(polarity)
+                comment_out[time]['subjectivity'].append(subjectivity)
         
     
     for i_s, sample in enumerate(data):
@@ -328,7 +338,7 @@ def _merge_training_data_with_sentiment():
         sample['headline_subjectivity'] = avg_hsub
 
     
-    with open('data\\covid\\full.json', 'w') as of:
+    with open('data\\normal\\normal_full.json', 'w') as of:
         json.dump(data, of)
 
 
@@ -344,7 +354,7 @@ def merge_reddit_comments_fincris():
     df_out['converted_time'] = pd.to_datetime(df_out['created_utc'], unit='s')
     df_out.to_csv('data\comment_by_date_feb\combined_comments.csv', index=False)
         
-def sentiment_per_date():
+def stock_with_sentiment_per_date():
     with open('data\covid\stockprice_per_date.json', 'r') as f:
         data = json.load(f)
     print(len(data))
@@ -383,15 +393,30 @@ def sentiment_per_date():
     with open('data\covid\stock_with_covid_sentiment.json', 'w') as f:
         json.dump(data, f)
         
+def process_normal_time_json():
+    with open('data\\normal\\normal_ful_wrong_time.json', 'r') as f:
+        data = json.load(f)
+        
+    for i_s, sample in enumerate(data):
+        date = sample['Date'].split('-')
+        formatted_time = [date[2] if len(date[2]) == 4 else '20' + date[2],
+                          months[date[1]] if len(months[date[1]]) == 2 else '0' + date[1], 
+                          date[0] if len(date[0]) == 2 else '0' + date[0]]
+        sample['formatted_time'] = ''.join(formatted_time)
     
+    data = sorted(data, key=itemgetter('formatted_time')) 
+    with open('data\\normal\\normal_ful.json', 'w') as f:
+        json.dump(data, f)
+
+        
         
     
 if __name__ == '__main__':
     print('hello world')
-    
+    process_normal_time_json()
     # process_headlines()
     # merge_headlines_by_date()
-    # process_stock_prices()
+    # process_stock_prices('data\\normal\stocknormaltime.csv')
     # make_samples()
     # merge_comments_by_date()
     # merge_reddit_comments_fincris()
@@ -401,4 +426,4 @@ if __name__ == '__main__':
     # process_reddit_comments()
     
     # sentiment_per_date()
-    _merge_training_data_with_sentiment()
+    # _merge_training_data_with_sentiment()
