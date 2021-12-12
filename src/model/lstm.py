@@ -50,6 +50,6 @@ class BaseLSTM(nn.Module):
         # print(lstm_out.size())
         out = self.out_2(lstm_out)
         out = self.out(out)
-        out = out[-1, 0, 0]
+        out = out[-1, 0, :]
         return out
     

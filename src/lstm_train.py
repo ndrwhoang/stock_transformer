@@ -1,5 +1,7 @@
 import torch
 torch.manual_seed(0)
+# import torchtext
+# from torchtext.data import get_tokenizer
 import random
 import torch.nn as nn
 import numpy as np
@@ -44,12 +46,12 @@ def load_data(window, future, price_type):
 
 def load_data_with_sentiment(window, future, price_type):
     print('Start loading data')
-    with open('data\\normal\\normal_ful.json', 'r') as f:
+    with open('data\covid\\full.json', 'r') as f:
         data = json.load(f)
     
         
     data = sorted(data, key=itemgetter('formatted_time')) 
-    # data = [sample for sample in data if int(sample['formatted_time']) < 20210201]
+    # data = [sample for sample in data if int(sample['formatted_time']) > 20080915]
     
     raw_time_series = [float(sample[price_type].replace(',', '')) for sample in data]   
     split_index = int(0.7*len(raw_time_series))
@@ -85,7 +87,6 @@ def load_data_with_sentiment(window, future, price_type):
         hpol_seq = torch.tensor(headline_pol_series[i: i+window], dtype=torch.float)
         hsub_seq = torch.tensor(headline_sub_series[i: i+window], dtype=torch.float)
         input_seq = torch.stack([price_seq, rpol_seq, rsub_seq, hpol_seq, hsub_seq], dim=1)
-        # target = closing_series[i+window+future:i+window+future+1]
         target_seq = torch.tensor(price_series[i+window:i+window+1], dtype=torch.float)
         training_data.append((input_seq, target_seq))
     
@@ -103,6 +104,7 @@ def do_train(model, training_data, n_epoch, lr, device):
     # loss_fn = nn.MSELoss()
     loss_fn = nn.L1Loss()
     n_step = len(training_data)
+    maes = []
     
     for i in range(n_epoch):
         mae = 0
@@ -110,19 +112,11 @@ def do_train(model, training_data, n_epoch, lr, device):
         pbar = tqdm(enumerate(training_data))
         for i_s, sample in pbar:
             sample = tuple(item.to(device) for item in sample)  
-            (input_seq, target) = sample        
-            # model.hidden_cell = (torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'), 
-            #                      torch.zeros(model.n_layer, 1, model.hidden_dim, device='cuda:0'))  
+            (input_seq, target) = sample         
             out = model(sample)
-            # print(out, out.size())
-            # print(target.size(), target)
             
-            
-            # if i_s > 50 and i_s < 55:
-            #     print(out[0].item(), target[0].item())
-            
-            # if i == n_epoch-1:
-            #     print(input_seq[:,0].tolist(), out.tolist(), target.tolist())
+            # print('out', out.size())
+            # print('target', target.size())
             
             loss = loss_fn(out, target)
             with torch.no_grad():
@@ -152,18 +146,11 @@ def do_valid(model, validation_data, device):
         all_preds.append(out.item())
         all_true.append(target.item())
         
-        # if i == n_epoch-1:
-        #     print(input_seq[:,0].tolist(), out.tolist(), target.tolist())
         with torch.no_grad():
-            loss = loss_fn(out, target.unsqueeze(1))
+            loss = loss_fn(out, target)
             mae += torch.abs(out - target)
-            # mae += loss.item()
     
-    print(f'================ Validation MAE: {mae/n_step}')
-    # for pred, true in zip(all_preds, all_true):
-    #     print(abs(pred-true))
-    print(all_preds)
-    print(all_true)
+    print(f'================ Validation MAE: {mae.item()/n_step}')
 
 def base_lstm_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -177,25 +164,25 @@ def base_lstm_train():
     return model
 
 def sentiment_lstm_train():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0")
     
     model_input = 5
     model_hidden = 20
-    window = 55
+    window = 25
     skip_forecast = 0
-    n_epoch = 30
+    n_epoch = 1
     lr = 0.01
     
     model = BaseLSTM(model_input, model_hidden)
     data = load_data_with_sentiment(window, skip_forecast, 'Close*')
-    # for i_s, sample in enumerate(data['training_data']):
-    #     if i_s == 3: break
-    #     print(sample[0].size())
-    #     print(sample[0][:, 0], sample[1])
-    #     print(sample)
+    for i_s, sample in enumerate(data['training_data']):
+        if i_s == 3: break
+        print(sample[0].size())
+        print(sample[0][:, 0], sample[1])
+        print(sample)
     model.to(device)
     model = do_train(model, data['training_data'], n_epoch, lr, device)
-    do_valid(model, data['testing_data'], device)
+    # do_valid(model, data['testing_data'], device)
 
 def linear_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -239,7 +226,9 @@ def _merge_training_data_with_sentiment():
     
     with open('data\covid\\full.json', 'w') as f:
         json.dump(data, f)
-    
+
+
+
 if __name__ == '__main__':
     print('hello world')
     sentiment_lstm_train()
