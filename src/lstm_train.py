@@ -1,7 +1,7 @@
 import torch
 torch.manual_seed(0)
-# import torchtext
-# from torchtext.data import get_tokenizer
+import torchtext
+from torchtext.data import get_tokenizer
 import random
 import torch.nn as nn
 import numpy as np
@@ -9,9 +9,9 @@ import pandas as pd
 import json
 from operator import itemgetter
 from tqdm import tqdm
-# from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer
 from src.model.lstm import BaseLSTM, OFLinear
-# from src.dataset.preprocessing import *
+from src.dataset.preprocessing import *
 
 
 def load_data(window, future, price_type):
