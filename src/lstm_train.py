@@ -1,7 +1,7 @@
 import torch
 torch.manual_seed(0)
-import torchtext
-from torchtext.data import get_tokenizer
+# import torchtext
+# from torchtext.data import get_tokenizer
 import random
 import torch.nn as nn
 import numpy as np
@@ -64,17 +64,17 @@ def load_data_with_sentiment(window, future, price_type):
     # print(price_series[:split_index])
     reddit_pol_series, reddit_sub_series = [], []
     headline_pol_series, headline_sub_series = [], []
-    # for i in range(0, len(data)):
-    #     reddit_pol_series.append(data[i].get('reddit_polarity', 0))
-    #     reddit_sub_series.append(data[i].get('reddit_subjectivity', 0))
-    #     headline_pol_series.append(data[i].get('headline_polarity', 0))
-    #     headline_sub_series.append(data[i].get('headline_subjectivity', 0))
+    for i in range(0, len(data)):
+        reddit_pol_series.append(data[i].get('reddit_polarity', 0))
+        reddit_sub_series.append(data[i].get('reddit_subjectivity', 0))
+        headline_pol_series.append(data[i].get('headline_polarity', 0))
+        headline_sub_series.append(data[i].get('headline_subjectivity', 0))
         
-    for i in range(1, len(data)):
-        reddit_pol_series.append(0)
-        reddit_sub_series.append(0)
-        headline_pol_series.append(0)
-        headline_sub_series.append(0)
+    # for i in range(1, len(data)):
+    #     reddit_pol_series.append(0)
+    #     reddit_sub_series.append(0)
+    #     headline_pol_series.append(0)
+    #     headline_sub_series.append(0)
     
     # for price, rpol, rsub, hpol, hsub in zip(price_series, reddit_pol_series, reddit_sub_series, headline_pol_series, headline_sub_series):
     #     print(price, rpol, rsub, hpol, hsub)        
@@ -168,26 +168,27 @@ def sentiment_lstm_train():
     
     model_input = 5
     model_hidden = 20
-    window = 25
+    window = 40
     skip_forecast = 0
-    n_epoch = 1
-    lr = 0.01
+    n_epoch = 30
+    lr = 0.005
     
     model = BaseLSTM(model_input, model_hidden)
     data = load_data_with_sentiment(window, skip_forecast, 'Close*')
-    for i_s, sample in enumerate(data['training_data']):
-        if i_s == 3: break
-        print(sample[0].size())
-        print(sample[0][:, 0], sample[1])
-        print(sample)
+    # for i_s, sample in enumerate(data['training_data']):
+    #     if i_s == 3: break
+    #     print(sample[0].size())
+    #     print(sample[0][:, 0], sample[1])
+    #     print(sample)
     model.to(device)
     model = do_train(model, data['training_data'], n_epoch, lr, device)
-    # do_valid(model, data['testing_data'], device)
+    torch.save({'state_dict': model.state_dict()}, 'checkpoints\\lstm_covid_sent.pt')
+    do_valid(model, data['testing_data'], device)
 
 def linear_train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = OFLinear(5, 200)
-    data = load_training_data_with_sentiment(5, 0, 'Close*')
+    data = load_data_with_sentiment(5, 0, 'Close*')
     model.to(device)
     do_train(model, data['training_data'], 50, 0.01, device)
  
@@ -227,9 +228,22 @@ def _merge_training_data_with_sentiment():
     with open('data\covid\\full.json', 'w') as f:
         json.dump(data, f)
 
-
+def sentiment_lstm_valid():
+    device = torch.device("cuda:0")
+    
+    model_input = 5
+    model_hidden = 20
+    window = 20
+    skip_forecast = 0
+    
+    model = BaseLSTM(model_input, model_hidden)
+    data = load_data_with_sentiment(window, skip_forecast, 'Close*')
+    model.load_state_dict(torch.load('checkpoints\lstm_covid_sent.pt')['state_dict'])
+    model.to(device)
+    do_valid(model, data['testing_data'], device)
+    
 
 if __name__ == '__main__':
     print('hello world')
-    sentiment_lstm_train()
+    sentiment_lstm_valid()
     
